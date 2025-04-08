@@ -3,18 +3,32 @@
     {
       "showDevDebugOutput": "parsed",
       "cwd": "${workspaceRoot}",
-      "executable": "./build/ZJUI-Balance.elf",
-      "name": "STM32 Debug",
+      "executable": "${workspaceRoot}\\build\\ZJUI-Balance.elf",
+      "name": "Debug-DAP-Link",
       "request": "launch",
       "preLaunchTask": "buildEmbeddedTargets",
       "type": "cortex-debug",
       "servertype": "openocd",
       "device": "stm32f407",
       "configFiles": [
-        "interface/stlink-v2.cfg",
-        "target/stm32f4x.cfg"
+        "openocd_dap.cfg"
       ],
-      "armToolchainPath": "C:/Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/bin"
+      "armToolchainPath": "D:/Software-B/Tool-chain/Arm GNU Toolchain arm-none-eabi/13.3 rel1/bin"
+    },
+    {
+      "showDevDebugOutput": "parsed",
+      "cwd": "${workspaceRoot}",
+      "executable": "${workspaceRoot}\\build\\ZJUI-Balance.elf",
+      "name": "Debug-ST-Link",
+      "request": "launch",
+      "preLaunchTask": "buildEmbeddedTargets",
+      "type": "cortex-debug",
+      "servertype": "openocd",
+      "device": "stm32f407",
+      "configFiles": [
+        "openocd_stlink.cfg"
+      ],
+      "armToolchainPath": "D:/Software-B/Tool-chain/Arm GNU Toolchain arm-none-eabi/13.3 rel1/bin"
     },
     {
       "name": "C/C++ Runner: Debug Session",
@@ -23,8 +37,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "d:/DeskTop/Embedded/Infantry_test/Code_HNU_INS/Core/Src",
-      "program": "d:/DeskTop/Embedded/Infantry_test/Code_HNU_INS/Core/Src/build/Debug/outDebug",
+      "cwd": "d:/DeskTop/Embedded/RM/RM-ZJUI-RC-Test/module",
+      "program": "d:/DeskTop/Embedded/RM/RM-ZJUI-RC-Test/module/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

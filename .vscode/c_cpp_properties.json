@@ -1,7 +1,7 @@
 {
   "configurations": [
     {
-      "name": "windows-gcc-x86",
+      "name": "arm-eabi-gcc-x86",
       "includePath": [
         "${workspaceFolder}/**"
       ],
@@ -12,7 +12,7 @@
         "USE_HAL_DRIVER",
         "STM32F407xx"
       ],
-      "compilerPath": "D:/Software_Type_B/MinGW/bin/gcc.exe",
+      "compilerPath": "D:/Software-B/Tool-chain/Arm GNU Toolchain arm-none-eabi/13.3 rel1/bin/arm-none-eabi-gcc.exe",
       "cStandard": "${default}",
       "cppStandard": "${default}",
       "intelliSenseMode": "windows-gcc-x86",

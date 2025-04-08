@@ -298,7 +298,16 @@ $(BUILD_DIR):
 #######################################
 clean:
 	-rm -fR $(BUILD_DIR)
-  
+
+#######################################
+# Download
+#######################################
+flash:
+	openocd \
+		-f interface/cmsis-dap.cfg \
+		-f target/stm32f4x.cfg \
+		-c "program build/$(TARGET).elf verify reset exit"
+		
 #######################################
 # dependencies
 #######################################
