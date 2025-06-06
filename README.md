@@ -1,4 +1,8 @@
+<div align="center">
+
 [中文版](./README.md) | [English Version](./README.en.md) 
+
+</div>
 
 # 项目简介
 
