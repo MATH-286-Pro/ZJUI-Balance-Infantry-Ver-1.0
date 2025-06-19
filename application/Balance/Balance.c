@@ -41,12 +41,12 @@ extern RC_Type rc;
 #include "pid.h"
 
 #define mm 0.001f
-#define R_Wheel  124*mm  // 轮子半径
+#define R_Wheel  170*mm          // 轮子半径   // 124*mm
 
 #define IsInDeadZone(measure, target, DeadZone) (((measure - target)> -DeadZone && (measure - target) < DeadZone) ? target : measure)
 #define IsInDeadZoneSign(measure, target, DeadZone) (((measure - target)> -DeadZone && (measure - target) < DeadZone) ? 0 : 1)
 
-float target_pitch = 0.0f; // 测试实际数值角度
+float target_pitch = -3.5f;      // 测试实际数值角度  (要后倾为+，要前倾为-)
 float Vel_L = 0.0f;
 float Vel_R = 0.0f;
 float Vel_Diff = 0.0f;
@@ -67,7 +67,7 @@ void stand_task_init()
 {   
     // 直立环参数
     static const float PID_ARG[3] = {0.8f, 0.0f, 17.0f};     
-    static const float PID_MAX_OUT  = 3.0f; // 小米电机输峰值扭矩为 12Nm
+    static const float PID_MAX_OUT  = 3.0f;                             // 小米电机输峰值扭矩为 12Nm, 额定力矩 = 3Nm
     PID_init(&PID_Balance, PID_POSITION, PID_ARG, PID_MAX_OUT, 4.0f);
     PID_init(&PID_Balance_only, PID_POSITION, PID_ARG, PID_MAX_OUT, 4.0f);
 
@@ -86,35 +86,31 @@ void stand_task_init()
 void stand_task_start(INS_t *INS, float RC_Forward, float RC_Turn)
 {   
     // 速度环计算
-    Vel_measure_last = Vel_measure; // 用于滤波
-    Wheel_Speed_Read(&Vel_L, &Vel_R);                                       // 读取轮速
-    Vel_measure     = 0.5*(Vel_L * R_Wheel + Vel_R * R_Wheel);              // 车速 = (左轮速 + 右轮速) / 2
-    Vel_measure     = Vel_measure - INS->Gyro[X] * R_Wheel;                 // 轮速度修正
+    Vel_measure_last = Vel_measure;                                                  // 用于滤波
+    Wheel_Speed_Read(&Vel_L, &Vel_R);                                                // 读取轮速
+    Vel_measure     = 0.5*(Vel_L * R_Wheel + Vel_R * R_Wheel);                       // 车速 = (左轮速 + 右轮速) / 2
+    Vel_measure     = Vel_measure - INS->Gyro[X] * R_Wheel;                          // 轮速度修正
 
     Vel_measure     = Vel_measure * 0.3f + Vel_measure_last * 0.7f;                  // 速度滤波
-    Vel_print       = Vel_measure;                                                  // 用于打印
+    Vel_print       = Vel_measure;                                                   // 用于打印
     DZ_SIGN_VEL = IsInDeadZoneSign(Vel_measure,RC_Forward*4.0f, DeadZone_Vel);       // 速度环死区标志
-    PID_calc(&PID_VEL_UP,   Vel_measure, RC_Forward*4.0f);                       // 计算 平衡 速度环 输出
+    PID_calc(&PID_VEL_UP,   Vel_measure, RC_Forward*4.0f);                           // 计算 平衡 速度环 输出
 
     // 直立环计算
-    // PID_calc(&PID_Balance, INS->Roll, 0.0f);                       // 计算 PID 输出
-    PID_calc(&PID_Balance, INS->Roll, -DZ_SIGN_VEL*PID_VEL_UP.out);   // 计算 PID 输出
-    PID_calc(&PID_Balance_only, INS->Roll, 0.0f);                     // 计算 PID 输出
+    // PID_calc(&PID_Balance, INS->Roll, 0.0f);                                        // 计算 PID 输出
+    PID_calc(&PID_Balance, INS->Roll - target_pitch, -DZ_SIGN_VEL*PID_VEL_UP.out);     // 计算 PID 输出 有死区 (串级PID)
+    PID_calc(&PID_Balance_only, INS->Roll - target_pitch, 0.0f);                       // 计算 PID 输出
 
     // 转向环计算
-    Vel_Diff = Vel_L - Vel_R;                                // 左右轮速差
-    Vel_Diff = IsInDeadZone(Vel_Diff, 0.0f, DeadZone_TURN);  // 转向环死区
-    PID_calc(&PID_TURN, Vel_Diff, RC_Turn*20.0f);            // 计算 转向环 输出
+    Vel_Diff = Vel_L - Vel_R;                                                         // 左右轮速差
+    Vel_Diff = IsInDeadZone(Vel_Diff, 0.0f, DeadZone_TURN);                           // 转向环死区
+    PID_calc(&PID_TURN, Vel_Diff, RC_Turn*15.0f);                                     // 计算 转向环 输出
 
 
+    Wheel_Torque_Control(PID_Balance.out + PID_TURN.out,   // 左轮
+                         PID_Balance.out - PID_TURN.out);  // 右轮
 
-    // 力矩输出
-    static float Critical_Angle = 8.0f; // 临界角度
-    if (INS->Roll > -Critical_Angle && INS->Roll < Critical_Angle)
-    {Wheel_Torque_Control(PID_Balance.out + PID_TURN.out,   // 左轮
-                          PID_Balance.out - PID_TURN.out);} // 右轮
-    else
-    {Wheel_Torque_Control(PID_Balance_only.out + PID_TURN.out,   // 左轮
-                          PID_Balance_only.out - PID_TURN.out);}
+    // Wheel_Torque_Control(PID_Balance.out,   // 左轮
+    //                      PID_Balance.out);  // 右轮
 
 }

@@ -123,6 +123,9 @@ modules/DebugTool/Debug_Tool.c \
 modules/Motor/Motor_A1/A1_motor_drive.c \
 modules/Motor/Motor_MI/MI_motor_drive.c \
 modules/Motor/Motor_MI/Callback.c \
+modules/Motor/Motor_DM/dm_motor_ctrl.c \
+modules/Motor/Motor_DM/dm_motor_drv.c \
+modules/Motor/Motor_DM/dm_bsp_can.c \
 modules/can_test.c \
 modules/RC/rc.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c \
@@ -130,6 +133,7 @@ USB_DEVICE/App/usb_device.c \
 USB_DEVICE/App/usbd_desc.c \
 USB_DEVICE/App/usbd_cdc_if.c \
 USB_DEVICE/Target/usbd_conf.c
+
 
 
 # ASM sources
@@ -226,6 +230,7 @@ C_INCLUDES =  \
 -Imodules/DebugTool \
 -Imodules/Motor/Motor_A1 \
 -Imodules/Motor/Motor_MI \
+-Imodules/Motor/Motor_DM \
 -Imodules/RC \
 -IMiddlewares/ST/ARM/DSP/Inc \
 -IUSB_DEVICE/App \
@@ -298,7 +303,16 @@ $(BUILD_DIR):
 #######################################
 clean:
 	-rm -fR $(BUILD_DIR)
-  
+
+#######################################
+# Download
+#######################################
+flash:
+	openocd \
+		-f interface/cmsis-dap.cfg \
+		-f target/stm32f4x.cfg \
+		-c "program build/$(TARGET).elf verify reset exit"
+
 #######################################
 # dependencies
 #######################################

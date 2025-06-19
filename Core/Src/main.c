@@ -32,11 +32,15 @@
 /* USER CODE BEGIN Includes */
 #include "bsp_init.h"
 #include "bsp_buzzer.h"
+#include "bsp_can.h"
 #include "OLED.h"
 #include "ins_task.h"
 #include "Callback.h"
 #include "can_test.h"
 #include "MI_motor_drive.h"
+#include "dm_bsp_can.h"
+#include "dm_motor_ctrl.h"
+#include "dm_motor_drv.h"
 #include "rc.h"
 #include "OLED_BMP.h"
 
@@ -131,13 +135,27 @@ int main(void)
   OLED_show_string(0,0,"Initiating...");
   OLED_refresh_gram();
   Dbus_Init();  
-  CAN_Init(&hcan1);   
-  CAN_Filter_Mask_Config(&hcan1, CAN_FILTER(0) | CAN_FIFO_0 | CAN_EXTID | CAN_DATA_TYPE, 0, 0); 
   INS_DATA = INS_Init(); // 初始化IMU 测试 不知道为什么要初始化非常久 将近30秒
-  OLED_showBMP_gram(BMP_GENSHIN_GRAM);
-  
-  stand_task_init();
+
+  stand_task_init();     // 配置 PID 参数
   __enable_irq();
+
+
+
+  // 达妙电机使用 CAN2
+  bsp_can_init(&hcan2);                                                          // CAN 初始化
+  dm_motor_init();                           HAL_Delay(10);                // &motor 结构体初始化
+  dm_motor_enable(&hcan2, &motor[Motor1]);   HAL_Delay(10);                // 电机 1 使能
+  dm_motor_enable(&hcan2, &motor[Motor2]);   HAL_Delay(10);                // 电机 2 使能
+  dm_motor_enable(&hcan2, &motor[Motor3]);   HAL_Delay(10);                // 电机 3 使能
+  dm_motor_enable(&hcan2, &motor[Motor4]);   HAL_Delay(10);                // 电机 4 使能
+
+  // 小米电机使用 CAN1
+  CAN_Init(&hcan1);   // CAN_start + 打开 CAN 中断函数  
+  CAN_Filter_Mask_Config(&hcan1, CAN_FILTER(0) | CAN_FIFO_0 | CAN_EXTID | CAN_DATA_TYPE, 0, 0); 
+
+  // 显示原神
+  OLED_showBMP_gram(BMP_GENSHIN_GRAM);
 
   /* USER CODE END 2 */
 

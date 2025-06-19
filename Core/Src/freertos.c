@@ -36,6 +36,8 @@
 #include "bsp_buzzer.h"
 #include "MI_motor_drive.h"
 #include "A1_motor_drive.h"
+#include "dm_motor_ctrl.h"
+#include "dm_motor_drv.h"
 #include "joint.h"
 #include "wheel.h"
 #include "Balance.h"
@@ -66,7 +68,10 @@ extern RC_Type rc;        // 遥控器数据
 extern INS_t *INS_DATA;
 extern pid_type_def PID_Balance;
 extern pid_type_def PID_VEL_UP;
+
 extern float Vel_print;
+extern float Vel_L;
+extern float Vel_R;
 
 /* USER CODE END PM */
 
@@ -74,7 +79,7 @@ extern float Vel_print;
 /* USER CODE BEGIN Variables */
 osThreadId insTaskHandle;   // 手动添加
 osThreadId robotTaskHandle; // 手动添加
-osThreadId Motor_A1Handle;  // 手动添加
+osThreadId Joint_MotorHandle;  // 手动添加
 
 
 /* USER CODE END Variables */
@@ -82,9 +87,9 @@ osThreadId defaultTaskHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-void StartINSTASK(void const *argument);   // 手动添加
-void StartROBOTTASK(void const *argument); // 手动添加
-void Motor_A1_task(void const * argument); // 手动添加
+void StartINSTASK(void const *argument);      // 手动添加
+void StartROBOTTASK(void const *argument);    // 手动添加
+void Joint_Motor_Task(void const * argument); // 手动添加
 
 
 /* USER CODE END FunctionPrototypes */
@@ -149,8 +154,9 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(robottask, StartROBOTTASK, osPriorityAboveNormal, 0, 2048); // 手动添加
   robotTaskHandle = osThreadCreate(osThread(robottask), NULL);
 
-  osThreadDef(Motor_A1, Motor_A1_task, osPriorityIdle, 0, 128);
-  Motor_A1Handle = osThreadCreate(osThread(Motor_A1), NULL);
+  osThreadDef(Joint_Motor, Joint_Motor_Task, osPriorityIdle, 0, 128);
+  Joint_MotorHandle = osThreadCreate(osThread(Joint_Motor), NULL);
+
   /* USER CODE END RTOS_THREADS */
 
 }
@@ -167,7 +173,7 @@ void StartDefaultTask(void const * argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
-
+  extern float Vel_Diff;
   /* Infinite loop */
   for(;;)
   {
@@ -177,8 +183,14 @@ void StartDefaultTask(void const * argument)
     // USB_printf("Velocity.Dist.motionN:%d,%d\n",(int)(chassis.dist*100),(int)(chassis.vel_m*100));
 
     // 湖南大学 Pitch Roll 需要互换 
-    USB_printf("Yaw.Roll.Pitch:%d,%d,%d,%d,%d\n",(int)(INS_DATA->Roll*10),(int)(Vel_print*10*10),(int)(rc.RY*4*10*10),
-                                              (int)(PID_VEL_UP.out*100)),(int)(PID_Balance.out*100);
+    // USB_printf("Yaw.Roll.Pitch:%d,%d,%d,%d,%d\n",(int)(INS_DATA->Roll*10),(int)(Vel_print*10*10),(int)(rc.RY*4*10*10),
+    //                                           (int)(PID_VEL_UP.out*100)),(int)(PID_Balance.out*100);
+    // osDelay(10);
+    // usart1_printf
+    USB_printf("Vel_Diff.Vel_L.Vel_R:%d,%d,%d\n", 
+                              (int)(Vel_Diff*100),
+                              (int)(Vel_L*100),
+                              (int)(Vel_R*100));
     osDelay(10);
   }
   /* USER CODE END StartDefaultTask */
@@ -196,30 +208,34 @@ void StartINSTASK(void const *argument)
   }
 }
 
-void Motor_A1_task(void const * argument)
+void Joint_Motor_Task(void const * argument)
 {
-  /* USER CODE BEGIN Motor_A1_task */
-  osDelay(100);
-  Joint_Zero_init_Type2(); // 限位原点
-  osDelay(10);
-  Joint_Speed_Control(0.0f,0.0f);
-  /* Infinite loop */
-  for(;;)
-  {
-    if (rc.sw1 == SW_UP) // 急停
-    {
-      Joint_Position_Control(0.0f,0.0f);
-    }
+  uint8_t KP = 80;
+  uint8_t KD = 2;
+  float32_t retract_angle = 50.0 * PI/180;
 
-    else if (rc.sw1 == SW_MID) // 位置模式 (现在的位置模式为减速后的转子角度-角度制)
-    {
-      Joint_Full_Position_Control(rc.LY*60.0f - rc.LX*20.0f,
-                                  rc.LY*60.0f + rc.LX*20.0f,
-                                  rc.LY*60.0f - rc.LX*20.0f,
-                                  rc.LY*60.0f + rc.LX*20.0f);
+  mit_ctrl(&hcan2, &motor[Motor1], motor[Motor1].id, 0 - retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+  mit_ctrl(&hcan2, &motor[Motor2], motor[Motor2].id, 0 + retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+  mit_ctrl(&hcan2, &motor[Motor3], motor[Motor3].id, 0 + retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+  mit_ctrl(&hcan2, &motor[Motor4], motor[Motor4].id, 0 - retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+
+  while(1)  // 如果没有 while 那么该函数只会执行一次，如果该函数结束就会触发 prvTaskExitError() 报错函数
+  {
+    if (rc.sw1 == SW_UP) {
+      // 位置模式 (零点模式)
+      mit_ctrl(&hcan2, &motor[Motor1], motor[Motor1].id, 0 - retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      mit_ctrl(&hcan2, &motor[Motor2], motor[Motor2].id, 0 + retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      mit_ctrl(&hcan2, &motor[Motor3], motor[Motor3].id, 0 + retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      mit_ctrl(&hcan2, &motor[Motor4], motor[Motor4].id, 0 - retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
     }
-  }
-  /* USER CODE END Motor_A1_task */
+    if (rc.sw1 == SW_MID) {
+      // 位置模式
+      mit_ctrl(&hcan2, &motor[Motor1], motor[Motor1].id, -rc.LY*PI/3.0 - retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      mit_ctrl(&hcan2, &motor[Motor2], motor[Motor2].id, +rc.LY*PI/3.0 + retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      mit_ctrl(&hcan2, &motor[Motor3], motor[Motor3].id, +rc.LY*PI/3.0 + retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      mit_ctrl(&hcan2, &motor[Motor4], motor[Motor4].id, -rc.LY*PI/3.0 - retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
+    }
+  }   
 }
 
 void StartROBOTTASK(void const *argument)
