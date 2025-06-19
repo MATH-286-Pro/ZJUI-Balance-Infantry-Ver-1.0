@@ -208,32 +208,45 @@ void StartINSTASK(void const *argument)
   }
 }
 
+
+/*------------------------------------------------------髋关节控制---------------------------------------------------------*/
+void Joint_Control_function(float left_angle, float right_angle, float KP, float KD){
+
+  // 基本参数
+  float32_t MAX_ANGLE     = 0.0*PI/180;    // 向上最大角度
+  float32_t MIN_ANGLE     = -60.0*PI/180;  // 向下最大角度
+  float32_t retract_angle = 50.0 * PI/180; // 50度的收回角度
+
+  // 限幅
+  if (left_angle > MAX_ANGLE) left_angle = MAX_ANGLE;
+  if (left_angle < MIN_ANGLE) left_angle = MIN_ANGLE;
+  if (right_angle > MAX_ANGLE) right_angle = MAX_ANGLE;
+  if (right_angle < MIN_ANGLE) right_angle = MIN_ANGLE;
+
+  // 电机控制
+    // 左腿（Motor1, Motor2）                这里 retrct_angle 和 left/right angle 符号是一样的，都是向上为正
+    mit_ctrl(&hcan2, &motor[Motor1], motor[Motor1].id, -retract_angle - left_angle, 0, KP, KD, 0);     osDelay(2);
+    mit_ctrl(&hcan2, &motor[Motor2], motor[Motor2].id, +retract_angle + left_angle, 0, KP, KD, 0);     osDelay(2);
+
+    // 右腿（Motor3, Motor4）
+    mit_ctrl(&hcan2, &motor[Motor3], motor[Motor3].id, +retract_angle + right_angle, 0, KP, KD, 0);     osDelay(2);
+    mit_ctrl(&hcan2, &motor[Motor4], motor[Motor4].id, -retract_angle - right_angle, 0, KP, KD, 0);     osDelay(2);
+
+}
+
 void Joint_Motor_Task(void const * argument)
 {
-  uint8_t KP = 80;
-  uint8_t KD = 2;
-  float32_t retract_angle = 50.0 * PI/180;
-
-  mit_ctrl(&hcan2, &motor[Motor1], motor[Motor1].id, 0 - retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
-  mit_ctrl(&hcan2, &motor[Motor2], motor[Motor2].id, 0 + retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
-  mit_ctrl(&hcan2, &motor[Motor3], motor[Motor3].id, 0 + retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
-  mit_ctrl(&hcan2, &motor[Motor4], motor[Motor4].id, 0 - retract_angle, 0, 10, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+  Joint_Control_function(0, 0, 1, 0); // 初始位置，关节角度为0
 
   while(1)  // 如果没有 while 那么该函数只会执行一次，如果该函数结束就会触发 prvTaskExitError() 报错函数
   {
+    // 位置模式 (零点模式)
     if (rc.sw1 == SW_UP) {
-      // 位置模式 (零点模式)
-      mit_ctrl(&hcan2, &motor[Motor1], motor[Motor1].id, 0 - retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
-      mit_ctrl(&hcan2, &motor[Motor2], motor[Motor2].id, 0 + retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
-      mit_ctrl(&hcan2, &motor[Motor3], motor[Motor3].id, 0 + retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
-      mit_ctrl(&hcan2, &motor[Motor4], motor[Motor4].id, 0 - retract_angle, 0, 20, 1, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      Joint_Control_function(0, 0, 1, 0); // 位置模式下，关节角度为0
     }
+    // 位置模式
     if (rc.sw1 == SW_MID) {
-      // 位置模式
-      mit_ctrl(&hcan2, &motor[Motor1], motor[Motor1].id, -rc.LY*PI/3.0 - retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
-      mit_ctrl(&hcan2, &motor[Motor2], motor[Motor2].id, +rc.LY*PI/3.0 + retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
-      mit_ctrl(&hcan2, &motor[Motor3], motor[Motor3].id, +rc.LY*PI/3.0 + retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
-      mit_ctrl(&hcan2, &motor[Motor4], motor[Motor4].id, -rc.LY*PI/3.0 - retract_angle, 0, KP, KD, 0);  osDelay(2);  // Pos Vel KP KD Torque
+      Joint_Control_function(rc.LY*PI/3.0 - rc.LX*PI/3.0, rc.LY*PI/3.0 + rc.LX*PI/3.0, 80.0, 2.0); // 位置模式下，关节角度为 LY 的值
     }
   }   
 }
